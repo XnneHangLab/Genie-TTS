@@ -21,8 +21,17 @@ _STRONG_SPLITS = set(['!', '?', '…', '.', '。', '！', '？'])
 _ALL_PUNCTUATION = set(['!', '?', '…', ',', '.', '-', ' ', '。', '！', '？', '，', '、', '；', '：'])
 
 
+def get_variance_strength() -> float:
+    raw = os.getenv("GENIE_VARIANCE", "0.35").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 0.35
+    return max(0.0, min(1.0, value))
+
+
 def _low_variance_enabled() -> bool:
-    return os.getenv("GENIE_LOW_VARIANCE", "0").strip().lower() in {"1", "true", "yes", "on"}
+    return get_variance_strength() < 0.5
 
 
 def _get_first(text: str) -> str:
@@ -38,12 +47,14 @@ def _replace_consecutive_punctuation(text: str) -> str:
 
 def _soften_text(prompt_text: str) -> str:
     text = prompt_text
+    variance = get_variance_strength()
+
     text = re.sub(r'[!！]{2,}', '！', text)
     text = re.sub(r'[?？]{2,}', '？', text)
     text = re.sub(r'[.…]{2,}', '。', text)
     text = text.replace('——', '，').replace('—', '，')
 
-    if _low_variance_enabled():
+    if variance <= 0.35:
         text = text.replace('：', '，').replace('；', '，')
         text = re.sub(r'[~～]+', '。', text)
         text = re.sub(r'[,，、]{2,}', '，', text)
@@ -57,10 +68,12 @@ def _prepare_text(prompt_text: str, language: str) -> str:
         return text
 
     lang_lower = language.lower()
+    variance = get_variance_strength()
     text = _soften_text(text)
     text = _replace_consecutive_punctuation(text)
 
-    if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < (1 if _low_variance_enabled() else 2):
+    threshold = 1 if variance <= 0.35 else 2
+    if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < threshold:
         text = ("。" if lang_lower != "english" else ".") + text
 
     return text
@@ -165,9 +178,10 @@ def _get_phones_and_bert_single(
         else:
             text_bert = _empty_bert(len(phones))
 
-        if _low_variance_enabled() and len(phones) > 0:
-            # 轻微压缩 BERT 动态范围，减少重音/情绪大起伏的放大。
-            text_bert = text_bert * 0.85
+        variance = get_variance_strength()
+        if len(phones) > 0:
+            scale = 0.8 + 0.2 * variance
+            text_bert = text_bert * scale
 
     elif lang_lower == "korean":
         from .G2P.Korean.KoreanG2P import korean_to_phones

@@ -2,7 +2,7 @@ set shell := ["bash", "-cu"]
 
 python := env_var_or_default("PYTHON", "python")
 out_dir := env_var_or_default("OUT_DIR", "./outputs")
-low_variance := env_var_or_default("GENIE_LOW_VARIANCE", "1")
+variance := env_var_or_default("GENIE_VARIANCE", "0.35")
 
 baoqiao_model := ".\\baoqiao_genie"
 baoqiao_ref := ".\\baoqiao_genie\\emotions\\这个名字，是不是很适合他，长的像猫咪一样嘛.wav"
@@ -50,29 +50,29 @@ convert-v2 ckpt pth out:
 convert-v2pp ckpt pth out:
 	{{python}} scripts/convert_model.py --ckpt "{{ckpt}}" --pth "{{pth}}" --out "{{out}}" --force-version v2pp
 
-infer model_dir ref_audio ref_text text language="zh" character="demo" out="{{out_dir}}/output.wav" repeat="1":
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}"
+infer model_dir ref_audio ref_text text language="zh" character="demo" out="{{out_dir}}/output.wav" repeat="1" variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}" --variance "{{variance_arg}}"
 
-infer-v2 model_dir ref_audio ref_text text language="zh" character="demo-v2" out="{{out_dir}}/v2.wav" repeat="1":
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}"
+infer-v2 model_dir ref_audio ref_text text language="zh" character="demo-v2" out="{{out_dir}}/v2.wav" repeat="1" variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}" --variance "{{variance_arg}}"
 
-infer-v2pp model_dir ref_audio ref_text text language="zh" character="demo-v2pp" out="{{out_dir}}/v2pp.wav" repeat="1":
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}"
+infer-v2pp model_dir ref_audio ref_text text language="zh" character="demo-v2pp" out="{{out_dir}}/v2pp.wav" repeat="1" variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language "{{language}}" --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}" --variance "{{variance_arg}}"
 
-infer-auto model_dir ref_audio ref_text text character="demo-auto" out="{{out_dir}}/auto.wav" repeat="1":
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language auto --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}"
+infer-auto model_dir ref_audio ref_text text character="demo-auto" out="{{out_dir}}/auto.wav" repeat="1" variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{model_dir}}" --ref-audio "{{ref_audio}}" --ref-text "{{ref_text}}" --text "{{text}}" --language auto --character "{{character}}" --out "{{out}}" --repeat "{{repeat}}" --variance "{{variance_arg}}"
 
-infer-baoqiao:
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}"
+infer-baoqiao variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}" --variance "{{variance_arg}}"
 
-infer-baoqiao-repeat repeat="3":
-	GENIE_LOW_VARIANCE={{low_variance}} {{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}" --repeat "{{repeat}}"
+infer-baoqiao-repeat repeat="3" variance_arg="{{variance}}":
+	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}" --repeat "{{repeat}}" --variance "{{variance_arg}}"
 
 infer-baoqiao-stable:
-	just infer-baoqiao
+	just infer-baoqiao variance_arg=0.2
 
 infer-baoqiao-stable-repeat repeat="5":
-	just infer-baoqiao-repeat {{repeat}}
+	just infer-baoqiao-repeat {{repeat}} variance_arg=0.2
 
 test:
 	pytest tests

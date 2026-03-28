@@ -3,8 +3,13 @@ import re
 from typing import List, Set, Pattern
 
 
-def _low_variance_enabled() -> bool:
-    return os.getenv("GENIE_LOW_VARIANCE", "0").strip().lower() in {"1", "true", "yes", "on"}
+def get_variance_strength() -> float:
+    raw = os.getenv("GENIE_VARIANCE", "0.35").strip()
+    try:
+        value = float(raw)
+    except ValueError:
+        value = 0.35
+    return max(0.0, min(1.0, value))
 
 
 class TextSplitter:
@@ -15,9 +20,13 @@ class TextSplitter:
         - 只把强终止符当作真正的句边界
         - 逗号/顿号更多作为韵律提示，而不是切句点
         """
-        if _low_variance_enabled():
+        variance = get_variance_strength()
+        if variance <= 0.35:
             max_len = 160
             min_len = 12
+        elif variance <= 0.6:
+            max_len = 140
+            min_len = 10
 
         self.max_len: int = max_len
         self.min_len: int = min_len
