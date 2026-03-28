@@ -16,6 +16,37 @@ from .ModelManager import model_manager
 
 logger = logging.getLogger(__name__)
 
+_SPLITS = set(['!', '?', '…', ',', '.', '-', ' ', '。', '！', '？', '，', '、', '；', '：'])
+_PUNCTUATION = set(['!', '?', '…', ',', '.', '-', ' ']) | {'。', '！', '？', '，', '、', '；', '：'}
+
+
+def _get_first(text: str) -> str:
+    pattern = "[" + "".join(re.escape(sep) for sep in _SPLITS) + "]"
+    return re.split(pattern, text)[0].strip()
+
+
+def _replace_consecutive_punctuation(text: str) -> str:
+    punctuations = ''.join(re.escape(p) for p in _PUNCTUATION)
+    pattern = f'([{punctuations}])([{punctuations}])+'
+    return re.sub(pattern, r'\1', text)
+
+
+def _prepare_text(prompt_text: str, language: str) -> str:
+    text = prompt_text.strip("\n ")
+    if not text:
+        return text
+
+    lang_lower = language.lower()
+    text = _replace_consecutive_punctuation(text)
+
+    if text[0] not in _SPLITS and len(_get_first(text)) < 4:
+        text = ("。" if lang_lower != "english" else ".") + text
+
+    if text[-1] not in _SPLITS:
+        text += "。" if lang_lower != "english" else "."
+
+    return text
+
 
 # ---------------------------------------------------------------------------
 # Legacy Hybrid-Chinese-English splitter (preserved for backward compatibility)
@@ -53,6 +84,7 @@ def get_phones_and_bert(
     Handles multi-language modes ('Hybrid-Chinese-English', 'auto') by
     splitting text into per-language chunks and concatenating results.
     """
+    prompt_text = _prepare_text(prompt_text, language)
     lang_lower = language.lower()
 
     if lang_lower == "hybrid-chinese-english":
@@ -66,7 +98,7 @@ def get_phones_and_bert(
             logger.warning("LangDetector returned no segments for text %r; falling back to Japanese.", prompt_text[:60])
             return _get_phones_and_bert_single(prompt_text, "japanese")
         if len(chunks) == 1:
-            return _get_phones_and_bert_single(chunks[0]["content"], chunks[0]["language"])
+            return _get_phones_and_bert_single(_prepare_text(chunks[0]["content"], chunks[0]["language"]), chunks[0]["language"])
         return _process_chunks(chunks)
 
     return _get_phones_and_bert_single(prompt_text, language)
@@ -81,9 +113,8 @@ def _process_chunks(chunks: list[dict]) -> Tuple[np.ndarray, np.ndarray]:
     list_phones: list[np.ndarray] = []
     list_berts: list[np.ndarray] = []
     for chunk in chunks:
-        phones_seq, text_bert = _get_phones_and_bert_single(
-            chunk["content"], chunk["language"]
-        )
+        content = _prepare_text(chunk["content"], chunk["language"])
+        phones_seq, text_bert = _get_phones_and_bert_single(content, chunk["language"])
         list_phones.append(phones_seq)
         list_berts.append(text_bert)
     phones_seq = np.concatenate(list_phones, axis=1)
