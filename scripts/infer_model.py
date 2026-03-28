@@ -22,7 +22,7 @@ def main() -> int:
     parser.add_argument("--text", required=True, help="Text to synthesize")
     parser.add_argument("--out", default="output.wav", help="Output wav path")
     parser.add_argument("--play", action="store_true", help="Play generated audio")
-    parser.add_argument("--no-split", action="store_true", help="Disable sentence splitting")
+    parser.add_argument("--split", action="store_true", help="Enable sentence splitting (default: off)")
     args = parser.parse_args()
 
     model_dir = os.path.abspath(args.model_dir)
@@ -46,6 +46,7 @@ def main() -> int:
     print(f"language  : {args.language}")
     print(f"ref_audio : {ref_audio}")
     print(f"output    : {out_path}")
+    print(f"split     : {args.split}")
 
     genie.load_character(
         character_name=args.character,
@@ -64,7 +65,7 @@ def main() -> int:
         character_name=args.character,
         text=args.text,
         play=args.play,
-        split_sentence=not args.no_split,
+        split_sentence=args.split,
         save_path=out_path,
     )
 
