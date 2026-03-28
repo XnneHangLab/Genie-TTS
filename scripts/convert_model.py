@@ -4,6 +4,7 @@ import os
 import sys
 
 import genie_tts as genie
+from genie_tts.Converter.Converter import convert as convert_impl
 
 
 def main() -> int:
@@ -13,6 +14,12 @@ def main() -> int:
     parser.add_argument("--ckpt", required=True, help="Path to GPT checkpoint (.ckpt)")
     parser.add_argument("--pth", required=True, help="Path to SoVITS weights (.pth)")
     parser.add_argument("--out", required=True, help="Output directory for Genie ONNX files")
+    parser.add_argument(
+        "--force-version",
+        choices=["v2", "v2pp"],
+        default=None,
+        help="Force model version instead of auto-detecting",
+    )
     args = parser.parse_args()
 
     ckpt_path = os.path.abspath(args.ckpt)
@@ -32,12 +39,19 @@ def main() -> int:
     print(f"ckpt: {ckpt_path}")
     print(f"pth : {pth_path}")
     print(f"out : {out_dir}")
+    if args.force_version:
+        print(f"force_version: {args.force_version}")
 
-    genie.convert_to_onnx(
+    ok = convert_impl(
         torch_ckpt_path=ckpt_path,
         torch_pth_path=pth_path,
         output_dir=out_dir,
+        force_version=args.force_version,
     )
+
+    if not ok:
+        print("\n[ERROR] conversion failed", file=sys.stderr)
+        return 1
 
     print("\n[OK] conversion finished")
     print(f"Output directory: {out_dir}")

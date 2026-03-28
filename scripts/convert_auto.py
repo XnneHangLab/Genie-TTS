@@ -25,6 +25,12 @@ def main() -> int:
         help="Optional output directory. Default: <model_dir>_genie",
     )
     parser.add_argument(
+        "--force-version",
+        choices=["v2", "v2pp"],
+        default=None,
+        help="Force model version instead of auto-detecting",
+    )
+    parser.add_argument(
         "--python",
         default=sys.executable,
         help="Python executable to use when calling scripts/convert_model.py",
@@ -59,6 +65,8 @@ def main() -> int:
         "--out",
         str(out_dir),
     ]
+    if args.force_version:
+        cmd.extend(["--force-version", args.force_version])
 
     print("=== Genie Auto Convert ===")
     print(f"model_dir: {model_dir}")
