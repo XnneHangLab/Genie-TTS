@@ -72,7 +72,7 @@ infer-baoqiao-stable:
 	just infer-baoqiao variance_arg=0.2
 
 infer-baoqiao-stable-repeat repeat="5":
-	just infer-baoqiao-repeat {{repeat}} variance_arg=0.2
+	just infer-baoqiao-repeat repeat={{repeat}} variance_arg=0.2
 
 test:
 	pytest tests
