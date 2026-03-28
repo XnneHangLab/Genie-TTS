@@ -1,6 +1,4 @@
-set shell := ["bash", "-cu"]
-
-python := env_var_or_default("PYTHON", "python")
+python := "uv run"
 out_dir := env_var_or_default("OUT_DIR", "./outputs")
 
 _default:
