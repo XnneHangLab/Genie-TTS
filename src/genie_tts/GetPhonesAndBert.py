@@ -32,7 +32,6 @@ def _replace_consecutive_punctuation(text: str) -> str:
 
 
 def _soften_text(prompt_text: str) -> str:
-    # 弱化过度戏剧化标点，把长省略号/连感叹号这类压平一点。
     text = prompt_text
     text = re.sub(r'[!！]{2,}', '！', text)
     text = re.sub(r'[?？]{2,}', '？', text)
@@ -50,16 +49,14 @@ def _prepare_text(prompt_text: str, language: str) -> str:
     text = _soften_text(text)
     text = _replace_consecutive_punctuation(text)
 
-    # 只在首句极短时补起始标点，避免强行拉高句首情绪。
     if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < 2:
         text = ("。" if lang_lower != "english" else ".") + text
 
-    # 不再无脑补句尾，尽量保留自然输入节奏。
     return text
 
 
 def _empty_bert(phone_count: int) -> np.ndarray:
-    return np.zeros((BERT_FEATURE_DIM, phone_count), dtype=np.float32)
+    return np.zeros((phone_count, BERT_FEATURE_DIM), dtype=np.float32)
 
 
 def _ensure_bert_shape(text_bert: np.ndarray, phone_count: int) -> np.ndarray:
@@ -67,14 +64,14 @@ def _ensure_bert_shape(text_bert: np.ndarray, phone_count: int) -> np.ndarray:
     if arr.ndim != 2:
         return _empty_bert(phone_count)
 
-    if arr.shape == (BERT_FEATURE_DIM, phone_count):
-        return arr
     if arr.shape == (phone_count, BERT_FEATURE_DIM):
+        return arr
+    if arr.shape == (BERT_FEATURE_DIM, phone_count):
         return arr.T
 
-    if arr.shape[0] == BERT_FEATURE_DIM:
-        return arr
     if arr.shape[1] == BERT_FEATURE_DIM:
+        return arr
+    if arr.shape[0] == BERT_FEATURE_DIM:
         return arr.T
 
     return _empty_bert(phone_count)
@@ -126,7 +123,7 @@ def _process_chunks(chunks: list[dict]) -> Tuple[np.ndarray, np.ndarray]:
         list_phones.append(phones_seq)
         list_berts.append(text_bert)
     phones_seq = np.concatenate(list_phones, axis=1)
-    text_bert = np.concatenate(list_berts, axis=1)
+    text_bert = np.concatenate(list_berts, axis=0)
     return phones_seq, text_bert
 
 
