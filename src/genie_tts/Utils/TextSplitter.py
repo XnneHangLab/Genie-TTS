@@ -1,5 +1,10 @@
+import os
 import re
 from typing import List, Set, Pattern
+
+
+def _low_variance_enabled() -> bool:
+    return os.getenv("GENIE_LOW_VARIANCE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 class TextSplitter:
@@ -10,6 +15,10 @@ class TextSplitter:
         - 只把强终止符当作真正的句边界
         - 逗号/顿号更多作为韵律提示，而不是切句点
         """
+        if _low_variance_enabled():
+            max_len = 160
+            min_len = 12
+
         self.max_len: int = max_len
         self.min_len: int = min_len
 
@@ -18,7 +27,6 @@ class TextSplitter:
             '!', '?', '.'
         }
 
-        # 这里只保留强边界相关标点进入切句正则，弱化逗号类切分
         self.all_puncts_chars: Set[str] = self.end_chars | {
             '“', '”', '‘', '’', '"', "'",
         }

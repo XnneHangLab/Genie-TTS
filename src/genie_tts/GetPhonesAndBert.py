@@ -6,6 +6,7 @@ Supported language values (after normalize_language()):
 """
 from __future__ import annotations
 
+import os
 import re
 import logging
 import numpy as np
@@ -18,6 +19,10 @@ logger = logging.getLogger(__name__)
 
 _STRONG_SPLITS = set(['!', '?', '…', '.', '。', '！', '？'])
 _ALL_PUNCTUATION = set(['!', '?', '…', ',', '.', '-', ' ', '。', '！', '？', '，', '、', '；', '：'])
+
+
+def _low_variance_enabled() -> bool:
+    return os.getenv("GENIE_LOW_VARIANCE", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _get_first(text: str) -> str:
@@ -37,6 +42,12 @@ def _soften_text(prompt_text: str) -> str:
     text = re.sub(r'[?？]{2,}', '？', text)
     text = re.sub(r'[.…]{2,}', '。', text)
     text = text.replace('——', '，').replace('—', '，')
+
+    if _low_variance_enabled():
+        text = text.replace('：', '，').replace('；', '，')
+        text = re.sub(r'[~～]+', '。', text)
+        text = re.sub(r'[,，、]{2,}', '，', text)
+
     return text
 
 
@@ -49,7 +60,7 @@ def _prepare_text(prompt_text: str, language: str) -> str:
     text = _soften_text(text)
     text = _replace_consecutive_punctuation(text)
 
-    if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < 2:
+    if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < (1 if _low_variance_enabled() else 2):
         text = ("。" if lang_lower != "english" else ".") + text
 
     return text
@@ -153,6 +164,10 @@ def _get_phones_and_bert_single(
             text_bert = _ensure_bert_shape(outputs[0], len(phones))
         else:
             text_bert = _empty_bert(len(phones))
+
+        if _low_variance_enabled() and len(phones) > 0:
+            # 轻微压缩 BERT 动态范围，减少重音/情绪大起伏的放大。
+            text_bert = text_bert * 0.85
 
     elif lang_lower == "korean":
         from .G2P.Korean.KoreanG2P import korean_to_phones
