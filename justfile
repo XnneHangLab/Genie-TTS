@@ -67,5 +67,11 @@ infer-baoqiao:
 infer-baoqiao-repeat repeat="3":
 	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}" --repeat "{{repeat}}"
 
+infer-baoqiao-stable:
+	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out ".\\outputs\\baoqiao_stable.wav"
+
+infer-baoqiao-stable-repeat repeat="5":
+	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out ".\\outputs\\baoqiao_stable.wav" --repeat "{{repeat}}"
+
 test:
 	pytest tests
