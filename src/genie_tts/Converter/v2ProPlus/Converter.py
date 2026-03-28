@@ -8,13 +8,21 @@ from ...Utils.Constants import PACKAGE_NAME
 from ..v2.VITSConverter import VITSConverter
 from ..v2.T2SConverter import T2SModelConverter
 from ..v2.EncoderConverter import EncoderConverter
-from ..v2.Converter import (ENCODER_RESOURCE_PATH, STAGE_DECODER_RESOURCE_PATH,
-                            FIRST_STAGE_DECODER_RESOURCE_PATH, T2S_KEYS_RESOURCE_PATH, CACHE_DIR, remove_folder)
+from ..v2.Converter import (
+    ENCODER_RESOURCE_PATH,
+    STAGE_DECODER_RESOURCE_PATH,
+    FIRST_STAGE_DECODER_RESOURCE_PATH,
+    T2S_KEYS_RESOURCE_PATH,
+    CACHE_DIR,
+    remove_folder,
+    _resolve_template_path,
+    GENIE_T2S_STAGE_DECODER_TEMPLATE,
+    GENIE_T2S_FIRST_STAGE_DECODER_TEMPLATE,
+)
 from .PromptEncoderConverter import PromptEncoderConverter
 
 logger = logging.getLogger()
 
-# 使用 V2 ProPlus 的文件。
 VITS_RESOURCE_PATH = "Data/v2ProPlus/Models/vits_fp32.onnx"
 PROMPT_ENCODER_RESOURCE_PATH = "Data/v2ProPlus/Models/prompt_encoder_fp32.onnx"
 VITS_KEYS_RESOURCE_PATH = "./Data/v2ProPlus/Keys/vits_weights.txt"
@@ -22,7 +30,6 @@ PROMPT_ENCODER_KEYS_RESOURCE_PATH = "./Data/v2ProPlus/Keys/prompt_encoder_weight
 
 
 def convert(torch_ckpt_path: str, torch_pth_path: str, output_dir: str) -> None:
-    # 确保缓存和输出目录存在
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -36,8 +43,16 @@ def convert(torch_ckpt_path: str, torch_pth_path: str, output_dir: str) -> None:
             return str(stack.enter_context(importlib.resources.as_file(files.joinpath(p))))
 
         encoder_onnx_path = enter(ENCODER_RESOURCE_PATH)
-        stage_decoder_path = enter(STAGE_DECODER_RESOURCE_PATH)
-        first_stage_decoder_path = enter(FIRST_STAGE_DECODER_RESOURCE_PATH)
+        stage_decoder_path = _resolve_template_path(
+            STAGE_DECODER_RESOURCE_PATH,
+            GENIE_T2S_STAGE_DECODER_TEMPLATE,
+            enter,
+        )
+        first_stage_decoder_path = _resolve_template_path(
+            FIRST_STAGE_DECODER_RESOURCE_PATH,
+            GENIE_T2S_FIRST_STAGE_DECODER_TEMPLATE,
+            enter,
+        )
         vits_onnx_path = enter(VITS_RESOURCE_PATH)
         t2s_keys_path = enter(T2S_KEYS_RESOURCE_PATH)
         vits_keys_path = enter(VITS_KEYS_RESOURCE_PATH)
@@ -83,7 +98,6 @@ def convert(torch_ckpt_path: str, torch_pth_path: str, output_dir: str) -> None:
         except Exception:
             logger.error(f"❌ A critical error occurred during the conversion process")
             logger.error(traceback.format_exc())
-            remove_folder(output_dir)  # 只在失败时清理输出目录
+            remove_folder(output_dir)
         finally:
-            # 无论成功还是失败，都尝试清理缓存目录
             remove_folder(CACHE_DIR)

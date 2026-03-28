@@ -22,6 +22,19 @@ VITS_RESOURCE_PATH = "Data/v2/Models/vits_fp32.onnx"
 T2S_KEYS_RESOURCE_PATH = "Data/v2/Keys/t2s_onnx_keys.txt"
 VITS_KEYS_RESOURCE_PATH = "Data/v2/Keys/vits_onnx_keys.txt"
 
+# Optional overrides for decoder templates, so we can align exported models
+# with a custom ONNX sampling behavior (e.g. fast_gsv-matched templates).
+GENIE_T2S_STAGE_DECODER_TEMPLATE = "GENIE_T2S_STAGE_DECODER_TEMPLATE"
+GENIE_T2S_FIRST_STAGE_DECODER_TEMPLATE = "GENIE_T2S_FIRST_STAGE_DECODER_TEMPLATE"
+
+
+def _resolve_template_path(default_path: str, env_key: str, enter) -> str:
+    override = os.environ.get(env_key, "").strip()
+    if override:
+        logger.info(f"Using override template from ${env_key}: {override}")
+        return override
+    return str(enter(default_path))
+
 
 def find_ckpt_and_pth(directory: str) -> Tuple[Optional[str], Optional[str]]:
     """
@@ -44,11 +57,9 @@ def find_ckpt_and_pth(directory: str) -> Tuple[Optional[str], Optional[str]]:
         if not os.path.isfile(full_path):
             continue
 
-        # 提取 epoch
         m = re.search(r"e(\d+)", filename, flags=re.IGNORECASE)
         epoch = int(m.group(1)) if m else 0
 
-        # .ckpt 文件处理
         if filename.lower().endswith(".ckpt"):
             if (
                     epoch > best_ckpt_epoch
@@ -61,7 +72,6 @@ def find_ckpt_and_pth(directory: str) -> Tuple[Optional[str], Optional[str]]:
                 best_ckpt_epoch = epoch
                 best_ckpt_path = full_path
 
-        # .pth 文件处理
         elif filename.lower().endswith(".pth"):
             if (
                     epoch > best_pth_epoch
@@ -89,7 +99,6 @@ def remove_folder(folder: str) -> None:
 def convert(torch_ckpt_path: str,
             torch_pth_path: str,
             output_dir: str):
-    # 确保缓存和输出目录存在
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(output_dir, exist_ok=True)
 
@@ -102,32 +111,40 @@ def convert(torch_ckpt_path: str,
         def enter(p):
             return stack.enter_context(importlib.resources.as_file(files.joinpath(p)))
 
-        encoder_onnx_path = enter(ENCODER_RESOURCE_PATH)
-        stage_decoder_path = enter(STAGE_DECODER_RESOURCE_PATH)
-        first_stage_decoder_path = enter(FIRST_STAGE_DECODER_RESOURCE_PATH)
-        vits_onnx_path = enter(VITS_RESOURCE_PATH)
-        t2s_keys_path = enter(T2S_KEYS_RESOURCE_PATH)
-        vits_keys_path = enter(VITS_KEYS_RESOURCE_PATH)
+        encoder_onnx_path = str(enter(ENCODER_RESOURCE_PATH))
+        stage_decoder_path = _resolve_template_path(
+            STAGE_DECODER_RESOURCE_PATH,
+            GENIE_T2S_STAGE_DECODER_TEMPLATE,
+            enter,
+        )
+        first_stage_decoder_path = _resolve_template_path(
+            FIRST_STAGE_DECODER_RESOURCE_PATH,
+            GENIE_T2S_FIRST_STAGE_DECODER_TEMPLATE,
+            enter,
+        )
+        vits_onnx_path = str(enter(VITS_RESOURCE_PATH))
+        t2s_keys_path = str(enter(T2S_KEYS_RESOURCE_PATH))
+        vits_keys_path = str(enter(VITS_KEYS_RESOURCE_PATH))
 
         converter_1 = T2SModelConverter(
             torch_ckpt_path=torch_ckpt_path,
-            stage_decoder_onnx_path=str(stage_decoder_path),
-            first_stage_decoder_onnx_path=str(first_stage_decoder_path),
-            key_list_file=str(t2s_keys_path),
+            stage_decoder_onnx_path=stage_decoder_path,
+            first_stage_decoder_onnx_path=first_stage_decoder_path,
+            key_list_file=t2s_keys_path,
             output_dir=output_dir,
             cache_dir=CACHE_DIR,
         )
         converter_2 = VITSConverter(
             torch_pth_path=torch_pth_path,
-            vits_onnx_path=str(vits_onnx_path),
-            key_list_file=str(vits_keys_path),
+            vits_onnx_path=vits_onnx_path,
+            key_list_file=vits_keys_path,
             output_dir=output_dir,
             cache_dir=CACHE_DIR,
         )
         converter_3 = EncoderConverter(
             ckpt_path=torch_ckpt_path,
             pth_path=torch_pth_path,
-            onnx_input_path=str(encoder_onnx_path),
+            onnx_input_path=encoder_onnx_path,
             output_dir=output_dir,
         )
 
@@ -140,7 +157,6 @@ def convert(torch_ckpt_path: str,
         except Exception:
             logger.error(f"❌ A critical error occurred during the conversion process")
             logger.error(traceback.format_exc())
-            remove_folder(output_dir)  # 只在失败时清理输出目录
+            remove_folder(output_dir)
         finally:
-            # 无论成功还是失败，都尝试清理缓存目录
             remove_folder(CACHE_DIR)
