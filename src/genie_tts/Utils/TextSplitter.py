@@ -3,14 +3,12 @@ from typing import List, Set, Pattern
 
 
 class TextSplitter:
-    def __init__(self, max_len: int = 100, min_len: int = 5):
+    def __init__(self, max_len: int = 120, min_len: int = 8):
         """
-        初始化文本切分器。
-
-        更贴近 fast_gsv：默认更长的软切分长度，避免中文句子被过早切碎。
-
-        :param max_len: 软限制最大长度 (Effective Length)。超过此长度遇到分隔符时会切分。
-        :param min_len: 硬限制最小长度 (Effective Length)。小于此长度遇到终止符也不会切分。
+        更偏自然朗读：
+        - 默认更长的软切分长度
+        - 只把强终止符当作真正的句边界
+        - 逗号/顿号更多作为韵律提示，而不是切句点
         """
         self.max_len: int = max_len
         self.min_len: int = min_len
@@ -20,9 +18,8 @@ class TextSplitter:
             '!', '?', '.'
         }
 
+        # 这里只保留强边界相关标点进入切句正则，弱化逗号类切分
         self.all_puncts_chars: Set[str] = self.end_chars | {
-            '，', '、', '；', '：', '——',
-            ',', ';', ':',
             '“', '”', '‘', '’', '"', "'",
         }
 

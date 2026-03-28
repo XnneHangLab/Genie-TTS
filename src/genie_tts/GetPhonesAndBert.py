@@ -16,19 +16,29 @@ from .ModelManager import model_manager
 
 logger = logging.getLogger(__name__)
 
-_SPLITS = set(['!', '?', '…', ',', '.', '-', ' ', '。', '！', '？', '，', '、', '；', '：'])
-_PUNCTUATION = set(['!', '?', '…', ',', '.', '-', ' ']) | {'。', '！', '？', '，', '、', '；', '：'}
+_STRONG_SPLITS = set(['!', '?', '…', '.', '。', '！', '？'])
+_ALL_PUNCTUATION = set(['!', '?', '…', ',', '.', '-', ' ', '。', '！', '？', '，', '、', '；', '：'])
 
 
 def _get_first(text: str) -> str:
-    pattern = "[" + "".join(re.escape(sep) for sep in _SPLITS) + "]"
+    pattern = "[" + "".join(re.escape(sep) for sep in _ALL_PUNCTUATION) + "]"
     return re.split(pattern, text)[0].strip()
 
 
 def _replace_consecutive_punctuation(text: str) -> str:
-    punctuations = ''.join(re.escape(p) for p in _PUNCTUATION)
+    punctuations = ''.join(re.escape(p) for p in _ALL_PUNCTUATION)
     pattern = f'([{punctuations}])([{punctuations}])+'
     return re.sub(pattern, r'\1', text)
+
+
+def _soften_text(prompt_text: str) -> str:
+    # 弱化过度戏剧化标点，把长省略号/连感叹号这类压平一点。
+    text = prompt_text
+    text = re.sub(r'[!！]{2,}', '！', text)
+    text = re.sub(r'[?？]{2,}', '？', text)
+    text = re.sub(r'[.…]{2,}', '。', text)
+    text = text.replace('——', '，').replace('—', '，')
+    return text
 
 
 def _prepare_text(prompt_text: str, language: str) -> str:
@@ -37,14 +47,14 @@ def _prepare_text(prompt_text: str, language: str) -> str:
         return text
 
     lang_lower = language.lower()
+    text = _soften_text(text)
     text = _replace_consecutive_punctuation(text)
 
-    if text[0] not in _SPLITS and len(_get_first(text)) < 4:
+    # 只在首句极短时补起始标点，避免强行拉高句首情绪。
+    if text[0] not in _STRONG_SPLITS and len(_get_first(text)) < 2:
         text = ("。" if lang_lower != "english" else ".") + text
 
-    if text[-1] not in _SPLITS:
-        text += "。" if lang_lower != "english" else "."
-
+    # 不再无脑补句尾，尽量保留自然输入节奏。
     return text
 
 
@@ -70,10 +80,6 @@ def _ensure_bert_shape(text_bert: np.ndarray, phone_count: int) -> np.ndarray:
     return _empty_bert(phone_count)
 
 
-# ---------------------------------------------------------------------------
-# Legacy Hybrid-Chinese-English splitter (preserved for backward compatibility)
-# ---------------------------------------------------------------------------
-
 def _split_chinese_english(text: str) -> list[dict]:
     pattern_eng = re.compile(r"[a-zA-Z]+")
     parts = re.split(pattern_eng, text)
@@ -87,10 +93,6 @@ def _split_chinese_english(text: str) -> list[dict]:
             result.append({"language": "english", "content": matches[i]})
     return result
 
-
-# ---------------------------------------------------------------------------
-# Public entry point
-# ---------------------------------------------------------------------------
 
 def get_phones_and_bert(
     prompt_text: str, language: str = "japanese"
@@ -114,10 +116,6 @@ def get_phones_and_bert(
 
     return _get_phones_and_bert_single(prompt_text, language)
 
-
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
 
 def _process_chunks(chunks: list[dict]) -> Tuple[np.ndarray, np.ndarray]:
     list_phones: list[np.ndarray] = []
