@@ -79,6 +79,7 @@ This fork includes a `justfile` plus ready-to-run scripts for:
 - converting GPT-SoVITS **V2ProPlus** models
 - testing inference for both converted model types
 - testing `language="auto"`
+- auto-discovering model directories for conversion
 
 Install `just` first:
 
@@ -106,19 +107,38 @@ Generic conversion:
 just convert /path/to/s1.ckpt /path/to/s2G.pth /path/to/output_dir
 ```
 
+Auto-discover `.ckpt` and `.pth` inside a model directory, then output to `<model_dir>_genie` by default:
+
+```bash
+just convert-auto /path/to/model_dir
+```
+
+Example:
+
+```bash
+just convert-auto /path/to/mika_v2
+# output -> /path/to/mika_v2_genie
+```
+
+You can still override the output directory explicitly:
+
+```bash
+just convert-auto /path/to/mika_v2 /path/to/custom_output_dir
+```
+
 V2 example:
 
 ```bash
-just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_onnx
+just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_genie
 ```
 
 V2ProPlus example:
 
 ```bash
-just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_onnx
+just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_genie
 ```
 
-All three commands currently use the same converter entrypoint. The converter auto-detects whether the checkpoint is V2 or V2ProPlus.
+All three low-level conversion commands currently use the same converter entrypoint. The converter auto-detects whether the checkpoint is V2 or V2ProPlus.
 
 ### 🎤 Run inference tests
 
@@ -131,13 +151,13 @@ just infer /path/to/model_dir /path/to/ref.wav "reference text" "text to synthes
 V2 inference example:
 
 ```bash
-just infer-v2 /path/to/v2_onnx /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
+just infer-v2 /path/to/v2_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
 ```
 
 V2ProPlus inference example:
 
 ```bash
-just infer-v2pp /path/to/v2pp_onnx /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
+just infer-v2pp /path/to/v2pp_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
 ```
 
 Auto language detection example:
@@ -149,6 +169,7 @@ just infer-auto /path/to/model_dir /path/to/ref.wav "你好，今天过得怎么
 The `justfile` recipes call these scripts:
 
 - `scripts/convert_model.py`
+- `scripts/convert_auto.py`
 - `scripts/infer_model.py`
 
 You can also run them directly if you prefer plain Python commands.

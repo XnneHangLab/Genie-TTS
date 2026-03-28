@@ -103,19 +103,38 @@ just
 just convert /path/to/s1.ckpt /path/to/s2G.pth /path/to/output_dir
 ```
 
+目录自动识别：自动在目录里找 `.ckpt` 和 `.pth`，默认输出到 `<目录名>_genie`：
+
+```bash
+just convert-auto /path/to/model_dir
+```
+
+例如：
+
+```bash
+just convert-auto /path/to/mika_v2
+# 输出到 /path/to/mika_v2_genie
+```
+
+也可以手动指定输出目录：
+
+```bash
+just convert-auto /path/to/mika_v2 /path/to/custom_output_dir
+```
+
 V2 示例：
 
 ```bash
-just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_onnx
+just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_genie
 ```
 
 V2ProPlus 示例：
 
 ```bash
-just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_onnx
+just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_genie
 ```
 
-目前这三个命令都走同一个转换入口，转换器会自动判断输入更像 V2 还是 V2ProPlus。
+目前这几个底层转换命令都走同一个转换入口，转换器会自动判断输入更像 V2 还是 V2ProPlus。
 
 ### 🎤 推理测试
 
@@ -128,13 +147,13 @@ just infer /path/to/model_dir /path/to/ref.wav "参考音频文本" "要合成�
 V2 推理示例：
 
 ```bash
-just infer-v2 /path/to/v2_onnx /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
+just infer-v2 /path/to/v2_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
 ```
 
 V2ProPlus 推理示例：
 
 ```bash
-just infer-v2pp /path/to/v2pp_onnx /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
+just infer-v2pp /path/to/v2pp_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
 ```
 
 自动语言检测示例：
@@ -143,9 +162,10 @@ just infer-v2pp /path/to/v2pp_onnx /path/to/ref.wav "今天天气真不错。" "
 just infer-auto /path/to/model_dir /path/to/ref.wav "你好，今天过得怎么样？" "你好，I love Tokyo！"
 ```
 
-`justfile` 实际调用的是这两个脚本：
+`justfile` 实际调用的是这三个脚本：
 
 - `scripts/convert_model.py`
+- `scripts/convert_auto.py`
 - `scripts/infer_model.py`
 
 如果你更习惯直接写 Python 命令，也可以绕过 `just` 直接调用它们。

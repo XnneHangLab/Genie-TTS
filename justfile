@@ -16,6 +16,13 @@ install-dev:
 convert ckpt pth out:
 	{{python}} scripts/convert_model.py --ckpt "{{ckpt}}" --pth "{{pth}}" --out "{{out}}"
 
+convert-auto model_dir out="":
+	if [ -n "{{out}}" ]; then \
+		{{python}} scripts/convert_auto.py "{{model_dir}}" --out "{{out}}"; \
+	else \
+		{{python}} scripts/convert_auto.py "{{model_dir}}"; \
+	fi
+
 convert-v2 ckpt pth out:
 	{{python}} scripts/convert_model.py --ckpt "{{ckpt}}" --pth "{{pth}}" --out "{{out}}"
 
