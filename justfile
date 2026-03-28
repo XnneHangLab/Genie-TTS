@@ -9,7 +9,7 @@ baoqiao_ref_text := "这个名字，是不是很适合他，长的像猫咪一�
 baoqiao_text := "我起床的时候已经九点了，透过窗子看到凶案现场，现场的警察需要我做一些解释，毕竟死者死在我家院子里。"
 baoqiao_language := "zh"
 baoqiao_character := "demo-v2"
-baoqiao_out := ".\\outputs\\baoqiao_v2.wav"
+baoqiao_out := ".\\outputs\\baoqiao_stable.wav"
 
 _default:
 	@just --list
@@ -68,10 +68,10 @@ infer-baoqiao-repeat repeat="3":
 	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out "{{baoqiao_out}}" --repeat "{{repeat}}"
 
 infer-baoqiao-stable:
-	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out ".\\outputs\\baoqiao_stable.wav"
+	just infer-baoqiao
 
 infer-baoqiao-stable-repeat repeat="5":
-	{{python}} scripts/infer_model.py --model-dir "{{baoqiao_model}}" --ref-audio "{{baoqiao_ref}}" --ref-text "{{baoqiao_ref_text}}" --text "{{baoqiao_text}}" --language "{{baoqiao_language}}" --character "{{baoqiao_character}}" --out ".\\outputs\\baoqiao_stable.wav" --repeat "{{repeat}}"
+	just infer-baoqiao-repeat {{repeat}}
 
 test:
 	pytest tests

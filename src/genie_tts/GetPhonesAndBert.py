@@ -48,16 +48,33 @@ def _prepare_text(prompt_text: str, language: str) -> str:
     return text
 
 
+def _empty_bert(phone_count: int) -> np.ndarray:
+    return np.zeros((BERT_FEATURE_DIM, phone_count), dtype=np.float32)
+
+
+def _ensure_bert_shape(text_bert: np.ndarray, phone_count: int) -> np.ndarray:
+    arr = np.asarray(text_bert, dtype=np.float32)
+    if arr.ndim != 2:
+        return _empty_bert(phone_count)
+
+    if arr.shape == (BERT_FEATURE_DIM, phone_count):
+        return arr
+    if arr.shape == (phone_count, BERT_FEATURE_DIM):
+        return arr.T
+
+    if arr.shape[0] == BERT_FEATURE_DIM:
+        return arr
+    if arr.shape[1] == BERT_FEATURE_DIM:
+        return arr.T
+
+    return _empty_bert(phone_count)
+
+
 # ---------------------------------------------------------------------------
 # Legacy Hybrid-Chinese-English splitter (preserved for backward compatibility)
 # ---------------------------------------------------------------------------
 
 def _split_chinese_english(text: str) -> list[dict]:
-    """Split text into Chinese and English chunks via Latin-character regex.
-
-    Kept for backward compatibility with 'Hybrid-Chinese-English' mode.
-    For general mixed-language splitting, use Utils.LangDetector.segment_by_language.
-    """
     pattern_eng = re.compile(r"[a-zA-Z]+")
     parts = re.split(pattern_eng, text)
     matches = pattern_eng.findall(text)
@@ -78,12 +95,6 @@ def _split_chinese_english(text: str) -> list[dict]:
 def get_phones_and_bert(
     prompt_text: str, language: str = "japanese"
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Return (phones_seq, text_bert) for *prompt_text* in *language*.
-
-    *language* should already be normalised by normalize_language().
-    Handles multi-language modes ('Hybrid-Chinese-English', 'auto') by
-    splitting text into per-language chunks and concatenating results.
-    """
     prompt_text = _prepare_text(prompt_text, language)
     lang_lower = language.lower()
 
@@ -109,7 +120,6 @@ def get_phones_and_bert(
 # ---------------------------------------------------------------------------
 
 def _process_chunks(chunks: list[dict]) -> Tuple[np.ndarray, np.ndarray]:
-    """Run G2P on each chunk and concatenate results."""
     list_phones: list[np.ndarray] = []
     list_berts: list[np.ndarray] = []
     for chunk in chunks:
@@ -118,20 +128,19 @@ def _process_chunks(chunks: list[dict]) -> Tuple[np.ndarray, np.ndarray]:
         list_phones.append(phones_seq)
         list_berts.append(text_bert)
     phones_seq = np.concatenate(list_phones, axis=1)
-    text_bert = np.concatenate(list_berts, axis=0)
+    text_bert = np.concatenate(list_berts, axis=1)
     return phones_seq, text_bert
 
 
 def _get_phones_and_bert_single(
     prompt_text: str, language: str = "japanese"
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """Run G2P for a single-language text chunk."""
     lang_lower = language.lower()
 
     if lang_lower == "english":
         from .G2P.English.EnglishG2P import english_to_phones
         phones = english_to_phones(prompt_text)
-        text_bert = np.zeros((len(phones), BERT_FEATURE_DIM), dtype=np.float32)
+        text_bert = _empty_bert(len(phones))
 
     elif lang_lower == "chinese":
         from .G2P.Chinese.ChineseG2P import chinese_to_phones
@@ -146,14 +155,14 @@ def _get_phones_and_bert_single(
                 "repeats": np.array(word2ph, dtype=np.int64),
             }
             outputs = model_manager.roberta_model.run(None, ort_inputs)
-            text_bert = outputs[0].astype(np.float32)
+            text_bert = _ensure_bert_shape(outputs[0], len(phones))
         else:
-            text_bert = np.zeros((len(phones), BERT_FEATURE_DIM), dtype=np.float32)
+            text_bert = _empty_bert(len(phones))
 
     elif lang_lower == "korean":
         from .G2P.Korean.KoreanG2P import korean_to_phones
         phones = korean_to_phones(prompt_text)
-        text_bert = np.zeros((len(phones), BERT_FEATURE_DIM), dtype=np.float32)
+        text_bert = _empty_bert(len(phones))
 
     else:
         if lang_lower not in ("japanese",):
@@ -164,7 +173,7 @@ def _get_phones_and_bert_single(
             )
         from .G2P.Japanese.JapaneseG2P import japanese_to_phones
         phones = japanese_to_phones(prompt_text)
-        text_bert = np.zeros((len(phones), BERT_FEATURE_DIM), dtype=np.float32)
+        text_bert = _empty_bert(len(phones))
 
     phones_seq = np.array([phones], dtype=np.int64)
     return phones_seq, text_bert
