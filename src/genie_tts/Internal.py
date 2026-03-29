@@ -203,8 +203,8 @@ async def tts_async(
     Args:
         character_name (str): The name of the character to use for synthesis.
         text (str): The text to be synthesized into speech.
-        play (bool, optional): If True, plays the audio as it's generated. Defaults to True.
-        split_sentence (bool, optional): If True, splits the text into sentences for synthesis. Defaults to False.
+        play (bool, optional): If True, plays the audio as it's generated. Defaults to False.
+        split_sentence (bool, optional): If True, splits the text into sentences for synthesis. Defaults to True.
         save_path (str | PathLike | None, optional): If provided, saves the generated audio to this file path. Defaults to None.
 
     Yields:
