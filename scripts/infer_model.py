@@ -34,7 +34,7 @@ def main() -> int:
     parser.add_argument("--out", default="output.wav", help="Output wav path")
     parser.add_argument("--repeat", type=int, default=1, help="Repeat inference N times and save unique files")
     parser.add_argument("--play", action="store_true", help="Play generated audio")
-    parser.add_argument("--split", action="store_true", help="Enable sentence splitting (default: off)")
+    parser.add_argument("--no-split", action="store_true", help="Disable sentence splitting (default: on)")
     args = parser.parse_args()
 
     model_dir = os.path.abspath(args.model_dir)
@@ -64,7 +64,7 @@ def main() -> int:
     print(f"ref_audio : {ref_audio}")
     print(f"output    : {out_path}")
     print(f"repeat    : {args.repeat}")
-    print(f"split     : {args.split}")
+    print(f"split     : {not args.no_split}")
 
     genie.load_character(
         character_name=args.character,
@@ -86,7 +86,7 @@ def main() -> int:
             character_name=args.character,
             text=args.text,
             play=args.play,
-            split_sentence=args.split,
+            split_sentence=not args.no_split,
             save_path=save_path,
         )
         if args.play:
