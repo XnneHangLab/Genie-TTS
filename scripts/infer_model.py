@@ -33,12 +33,6 @@ def main() -> int:
     parser.add_argument("--text", required=True, help="Text to synthesize")
     parser.add_argument("--out", default="output.wav", help="Output wav path")
     parser.add_argument("--repeat", type=int, default=1, help="Repeat inference N times and save unique files")
-    parser.add_argument(
-        "--variance",
-        type=float,
-        default=0.5,
-        help="Variance / expressiveness control in [0,1]. Lower = steadier/flatter, higher = freer/more expressive. Suggested: 0.2-0.35 stable, 0.35-0.55 natural, 0.55-0.8 expressive.",
-    )
     parser.add_argument("--play", action="store_true", help="Play generated audio")
     parser.add_argument("--split", action="store_true", help="Enable sentence splitting (default: off)")
     args = parser.parse_args()
@@ -57,9 +51,6 @@ def main() -> int:
         print("[ERROR] --repeat must be >= 1", file=sys.stderr)
         return 1
 
-    variance = max(0.0, min(1.0, args.variance))
-    os.environ["GENIE_VARIANCE"] = str(variance)
-
     out_parent = os.path.dirname(out_path)
     if out_parent:
         os.makedirs(out_parent, exist_ok=True)
@@ -74,7 +65,6 @@ def main() -> int:
     print(f"output    : {out_path}")
     print(f"repeat    : {args.repeat}")
     print(f"split     : {args.split}")
-    print(f"variance  : {variance}")
 
     genie.load_character(
         character_name=args.character,
