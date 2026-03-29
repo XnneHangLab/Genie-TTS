@@ -13,24 +13,6 @@ class GENIE:
     def __init__(self):
         self.stop_event: threading.Event = threading.Event()
 
-    @staticmethod
-    def _prepare_text(text: str, language: str) -> str:
-        text = text.strip()
-        if not text:
-            return text
-
-        if language.lower() == 'english':
-            end_marks = ('.', '!', '?', '…')
-            prefix = '.'
-        else:
-            end_marks = ('。', '！', '？', '…', '.', '!', '?')
-            prefix = '。'
-
-        # 跟 gsv 靠拢：仅在首句过短且开头没有标点时补一个起始标点，避免无脑改写整句起势。
-        if text[0] not in end_marks and len(text) < 4:
-            text = prefix + text
-        return text
-
     def tts(
             self,
             text: str,
@@ -42,7 +24,7 @@ class GENIE:
             prompt_encoder: Optional[ort.InferenceSession],
             language: str = 'japanese',
     ) -> Optional[np.ndarray]:
-        text = self._prepare_text(text, language)
+        text = '。' + text  # 防止漏第一句。
         text_seq, text_bert = get_phones_and_bert(text, language=language)
 
         semantic_tokens: np.ndarray = self.t2s_cpu(

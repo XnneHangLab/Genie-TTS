@@ -42,7 +42,7 @@ class ReferenceAudioPayload(BaseModel):
 class TTSPayload(BaseModel):
     character_name: str
     text: str
-    split_sentence: bool = False
+    split_sentence: bool = True
     save_path: Optional[str] = None
 
 
