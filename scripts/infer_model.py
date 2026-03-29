@@ -36,7 +36,7 @@ def main() -> int:
     parser.add_argument(
         "--variance",
         type=float,
-        default=0.35,
+        default=0.5,
         help="Variance / expressiveness control in [0,1]. Lower = steadier/flatter, higher = freer/more expressive. Suggested: 0.2-0.35 stable, 0.35-0.55 natural, 0.55-0.8 expressive.",
     )
     parser.add_argument("--play", action="store_true", help="Play generated audio")

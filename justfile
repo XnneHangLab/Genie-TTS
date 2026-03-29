@@ -2,7 +2,7 @@ set shell := ["bash", "-cu"]
 
 python := env_var_or_default("PYTHON", "python")
 out_dir := env_var_or_default("OUT_DIR", "./outputs")
-variance := env_var_or_default("GENIE_VARIANCE", "0.35")
+variance := env_var_or_default("GENIE_VARIANCE", "0.5")
 
 baoqiao_model := ".\\baoqiao_genie"
 baoqiao_ref := ".\\baoqiao_genie\\emotions\\这个名字，是不是很适合他，长的像猫咪一样嘛.wav"
