@@ -43,7 +43,7 @@ def fake_audio():
     return np.zeros(100, dtype=np.float32)
 
 
-def _make_ref(wav, text, language, get_phones_mock):
+def _make_ref(wav, text, language, get_phones_mock, use_roberta=False):
     """Construct a ReferenceAudio with all heavy deps stubbed out."""
     import genie_tts.Audio.ReferenceAudio as mod
     audio = np.zeros(100, dtype=np.float32)
@@ -64,6 +64,7 @@ def _make_ref(wav, text, language, get_phones_mock):
             prompt_wav=wav,
             prompt_text=text,
             language=language,
+            use_roberta=use_roberta,
         )
     return instance
 
@@ -116,3 +117,12 @@ class TestReferenceAudioCache:
         _make_ref("d.wav", "hello", "English", g2p)
         inst = _make_ref("d.wav", "hello", "Chinese", g2p)
         assert inst.language == "Chinese"
+
+    def test_same_wav_different_roberta_flag_reruns_g2p(self):
+        """Same wav/text/language but different use_roberta must re-run G2P."""
+        g2p = MagicMock(return_value=(np.zeros((1, 2), dtype=np.int64),
+                                      np.zeros((2, 1024), dtype=np.float32)))
+        _make_ref("e.wav", "你好", "Chinese", g2p, use_roberta=False)
+        inst = _make_ref("e.wav", "你好", "Chinese", g2p, use_roberta=True)
+        assert g2p.call_count == 2
+        assert inst.use_roberta is True

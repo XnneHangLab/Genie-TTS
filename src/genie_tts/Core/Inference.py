@@ -25,7 +25,11 @@ class GENIE:
             language: str = 'japanese',
     ) -> Optional[np.ndarray]:
         text = '。' + text  # 防止漏第一句。
-        text_seq, text_bert = get_phones_and_bert(text, language=language)
+        text_seq, text_bert = get_phones_and_bert(
+            text,
+            language=language,
+            use_roberta=getattr(prompt_audio, "use_roberta", False),
+        )
 
         semantic_tokens: np.ndarray = self.t2s_cpu(
             ref_seq=prompt_audio.phonemes_seq,

@@ -35,6 +35,7 @@ def main() -> int:
     parser.add_argument("--repeat", type=int, default=1, help="Repeat inference N times and save unique files")
     parser.add_argument("--play", action="store_true", help="Play generated audio")
     parser.add_argument("--no-split", action="store_true", help="Disable sentence splitting (default: on)")
+    parser.add_argument("--use-roberta", action="store_true", help="Enable Chinese RoBERTa text features")
     args = parser.parse_args()
 
     model_dir = os.path.abspath(args.model_dir)
@@ -65,11 +66,13 @@ def main() -> int:
     print(f"output    : {out_path}")
     print(f"repeat    : {args.repeat}")
     print(f"split     : {not args.no_split}")
+    print(f"roberta   : {args.use_roberta}")
 
     genie.load_character(
         character_name=args.character,
         onnx_model_dir=model_dir,
         language=args.language,
+        use_roberta=args.use_roberta,
     )
 
     genie.set_reference_audio(
@@ -77,6 +80,7 @@ def main() -> int:
         audio_path=ref_audio,
         audio_text=args.ref_text,
         language=args.language,
+        use_roberta=args.use_roberta,
     )
 
     costs = []

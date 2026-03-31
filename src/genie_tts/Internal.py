@@ -95,6 +95,7 @@ def load_character(
         character_name: str,
         onnx_model_dir: Union[str, PathLike],
         language: str,
+        use_roberta: bool = False,
 ) -> None:
     """
     Loads a character model from an ONNX model directory.
@@ -103,6 +104,7 @@ def load_character(
         character_name (str): The name to assign to the loaded character.
         onnx_model_dir (str | PathLike): The directory path containing the ONNX model files.
         language (str): The language of the character model.
+        use_roberta (bool): If True, enables Chinese RoBERTa text features for this character by default.
     """
     check_onnx_model_dir(onnx_model_dir)
 
@@ -120,6 +122,7 @@ def load_character(
         character_name=character_name,
         model_dir=model_path,
         language=language,
+        use_roberta=use_roberta,
     )
 
 
@@ -142,6 +145,7 @@ def set_reference_audio(
         audio_path: Union[str, PathLike],
         audio_text: str,
         language: str = None,
+        use_roberta: Optional[bool] = None,
 ) -> None:
     """
     Sets the reference audio for a character to be used for voice cloning.
@@ -153,6 +157,7 @@ def set_reference_audio(
         audio_path (str | PathLike): The file path to the reference audio (e.g., a WAV file).
         audio_text (str): The transcript of the reference audio.
         language (str): The language of the reference audio.
+        use_roberta (bool | None): Override whether Chinese RoBERTa features are enabled.
     """
     audio_path: str = os.fspath(audio_path)
 
@@ -164,8 +169,8 @@ def set_reference_audio(
         )
         return
 
+    gsv_model = model_manager.get(character_name)
     if language is None:
-        gsv_model = model_manager.get(character_name)
         if gsv_model:
             language = gsv_model.LANGUAGE
         else:
@@ -173,17 +178,21 @@ def set_reference_audio(
     language = normalize_language(language)
     if language not in ['Japanese', 'English', 'Chinese', 'Hybrid-Chinese-English', 'Korean', 'auto']:
         raise ValueError(f'Unsupported language for set_reference_audio: {language!r}')
+    if use_roberta is None:
+        use_roberta = gsv_model.USE_ROBERTA if gsv_model else False
 
     _reference_audios[character_name] = {
         'audio_path': audio_path,
         'audio_text': audio_text,
         'language': language,
+        'use_roberta': use_roberta,
     }
     # print(_reference_audios[character_name])
     context.current_prompt_audio = ReferenceAudio(
         prompt_wav=audio_path,
         prompt_text=audio_text,
         language=language,
+        use_roberta=use_roberta,
     )
 
 
@@ -237,6 +246,7 @@ async def tts_async(
         prompt_wav=_reference_audios[character_name]['audio_path'],
         prompt_text=_reference_audios[character_name]['audio_text'],
         language=_reference_audios[character_name]['language'],
+        use_roberta=_reference_audios[character_name].get('use_roberta', False),
     )
 
     # 3. 使用新的回调接口启动 TTS 会话
@@ -294,6 +304,7 @@ def tts(
         prompt_wav=_reference_audios[character_name]['audio_path'],
         prompt_text=_reference_audios[character_name]['audio_text'],
         language=_reference_audios[character_name]['language'],
+        use_roberta=_reference_audios[character_name].get('use_roberta', False),
     )
 
     tts_player.start_session(
@@ -376,6 +387,7 @@ def load_predefined_character(character_name: str) -> None:
         character_name=character_name,
         model_dir=os.path.join(save_path, 'tts_models'),
         language=CHARA_LANG[character_name],
+        use_roberta=False,
     )
 
     with open(os.path.join(save_path, "prompt_wav.json"), "r", encoding="utf-8") as f:
@@ -387,9 +399,11 @@ def load_predefined_character(character_name: str) -> None:
         'audio_path': audio_path,
         'audio_text': audio_text,
         'language': CHARA_LANG[character_name],
+        'use_roberta': False,
     }
     context.current_prompt_audio = ReferenceAudio(
         prompt_wav=audio_path,
         prompt_text=audio_text,
         language=CHARA_LANG[character_name],
+        use_roberta=False,
     )

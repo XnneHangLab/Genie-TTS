@@ -8,7 +8,7 @@ import gc
 import logging
 import os
 from dataclasses import dataclass
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Tuple
 
 import numpy as np
 import onnx
@@ -54,6 +54,63 @@ class GSVModel:
     VITS: InferenceSession
     PROMPT_ENCODER: Optional[InferenceSession] = None
     PROMPT_ENCODER_PATH: Optional[str] = None
+    USE_ROBERTA: bool = False
+
+
+def _unique_paths(paths: List[str]) -> List[str]:
+    result: List[str] = []
+    seen: set[str] = set()
+    for path in paths:
+        normalized = os.path.normpath(path)
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(normalized)
+    return result
+
+
+def candidate_roberta_dirs(base_dir: str = ROBERTA_MODEL_DIR) -> List[str]:
+    dirs = [base_dir]
+    genie_data_dir = os.path.dirname(os.path.normpath(base_dir))
+    if os.path.isdir(genie_data_dir):
+        for entry in os.scandir(genie_data_dir):
+            if entry.is_dir() and "roberta" in entry.name.lower():
+                dirs.append(entry.path)
+    return _unique_paths(dirs)
+
+
+def resolve_roberta_assets(base_dir: str = ROBERTA_MODEL_DIR) -> Tuple[Optional[str], Optional[str]]:
+    model_names = ("RoBERTa.onnx", "model.onnx", "model_fp16.onnx")
+    tokenizer_rel_paths = (
+        os.path.join("roberta_tokenizer", "tokenizer.json"),
+        "tokenizer.json",
+    )
+
+    for directory in candidate_roberta_dirs(base_dir):
+        model_path = next(
+            (os.path.join(directory, name) for name in model_names if os.path.isfile(os.path.join(directory, name))),
+            None,
+        )
+        if model_path is None and os.path.isdir(directory):
+            fallback_onnx = sorted(
+                entry.path
+                for entry in os.scandir(directory)
+                if entry.is_file() and entry.name.lower().endswith(".onnx")
+            )
+            if fallback_onnx:
+                model_path = fallback_onnx[0]
+        tokenizer_path = next(
+            (
+                os.path.join(directory, rel_path)
+                for rel_path in tokenizer_rel_paths
+                if os.path.isfile(os.path.join(directory, rel_path))
+            ),
+            None,
+        )
+        if model_path and tokenizer_path:
+            return model_path, tokenizer_path
+
+    return None, None
 
 
 def load_session_with_fp16_conversion(
@@ -122,6 +179,7 @@ class ModelManager:
         )
         self.character_to_language: Dict[str, str] = {}
         self.character_model_paths: Dict[str, str] = {}
+        self.character_to_use_roberta: Dict[str, bool] = {}
         self.providers = ["CPUExecutionProvider"]
 
         self.cn_hubert: Optional[InferenceSession] = None
@@ -129,25 +187,29 @@ class ModelManager:
         self.roberta_model: Optional[InferenceSession] = None
         self.roberta_tokenizer: Optional[Tokenizer] = None
 
-    def load_roberta_model(self, model_path: str = GSVModelFile.ROBERTA_MODEL) -> bool:
-        if self.roberta_model is not None:
+    def load_roberta_model(self) -> bool:
+        if self.roberta_model is not None and self.roberta_tokenizer is not None:
             return True
-        if not os.path.exists(model_path):
-            # logger.warning(f'RoBERTa model does not exist: {model_path}. BERT features will not be used.')
+
+        model_path, tokenizer_path = resolve_roberta_assets()
+        if not model_path or not tokenizer_path:
+            logger.warning(
+                "RoBERTa assets not found. Looked under: %s",
+                ", ".join(candidate_roberta_dirs()),
+            )
             return False
+
         try:
             self.roberta_model = onnxruntime.InferenceSession(
                 model_path,
                 providers=self.providers,
             )
-            self.roberta_tokenizer = Tokenizer.from_file(
-                os.path.join(GSVModelFile.ROBERTA_TOKENIZER, 'tokenizer.json')
-            )
-            logger.info(f"Successfully loaded RoBERTa model.")
+            self.roberta_tokenizer = Tokenizer.from_file(tokenizer_path)
+            logger.info("Successfully loaded RoBERTa model from %s", model_path)
             return True
         except Exception as e:
             logger.error(
-                f"Error: Failed to load ONNX model '{GSVModelFile.ROBERTA_MODEL}'.\n"
+                f"Error: Failed to load ONNX model '{model_path}'.\n"
                 f"Details: {e}"
             )
         return False
@@ -197,6 +259,7 @@ class ModelManager:
     def get(self, character_name: str) -> Optional[GSVModel]:
         character_name = character_name.lower()
         language = self.character_to_language.get(character_name, 'Japanese')
+        use_roberta = self.character_to_use_roberta.get(character_name, False)
         if character_name in self.character_to_model:
             model_map: dict = self.character_to_model[character_name]
             # 简化获取逻辑
@@ -214,10 +277,11 @@ class ModelManager:
                 VITS=model_map[GSVModelFile.VITS_FP32],
                 PROMPT_ENCODER=model_map[GSVModelFile.PROMPT_ENCODER],
                 PROMPT_ENCODER_PATH=prompt_encoder_path,
+                USE_ROBERTA=use_roberta,
             )
         if character_name in self.character_model_paths:
             model_dir = self.character_model_paths[character_name]
-            if self.load_character(character_name, model_dir, language=language):
+            if self.load_character(character_name, model_dir, language=language, use_roberta=use_roberta):
                 return self.get(character_name)
             else:
                 del self.character_model_paths[character_name]
@@ -233,12 +297,14 @@ class ModelManager:
             character_name: str,
             model_dir: str,
             language: str,
+            use_roberta: bool = False,
     ) -> bool:
         """
         加载角色模型，如果需要，在内存中动态转换 FP16 权重。
         """
         character_name = character_name.lower()
         if character_name in self.character_to_model:
+            self.character_to_use_roberta[character_name] = use_roberta
             _ = self.character_to_model[character_name]
             return True
 
@@ -300,6 +366,7 @@ class ModelManager:
             self.character_to_model[character_name] = model_dict
             self.character_to_language[character_name] = language
             self.character_model_paths[character_name] = model_dir
+            self.character_to_use_roberta[character_name] = use_roberta
             return True
 
         except Exception as e:
@@ -311,12 +378,18 @@ class ModelManager:
 
     def remove_all_character(self) -> None:
         self.character_to_model.clear()
+        self.character_to_language.clear()
+        self.character_model_paths.clear()
+        self.character_to_use_roberta.clear()
         gc.collect()
 
     def remove_character(self, character_name: str) -> None:
         character_name = character_name.lower()
         if character_name in self.character_to_model:
             del self.character_to_model[character_name]
+            self.character_to_language.pop(character_name, None)
+            self.character_model_paths.pop(character_name, None)
+            self.character_to_use_roberta.pop(character_name, None)
             gc.collect()
             logger.info(f"Character {character_name.capitalize()} removed successfully.")
 
