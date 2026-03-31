@@ -26,6 +26,7 @@ class CharacterPayload(BaseModel):
     character_name: str
     onnx_model_dir: str
     language: str
+    use_roberta: bool = False
 
 
 class UnloadCharacterPayload(BaseModel):
@@ -37,12 +38,13 @@ class ReferenceAudioPayload(BaseModel):
     audio_path: str
     audio_text: str
     language: str
+    use_roberta: Optional[bool] = None
 
 
 class TTSPayload(BaseModel):
     character_name: str
     text: str
-    split_sentence: bool = False
+    split_sentence: bool = True
     save_path: Optional[str] = None
 
 
@@ -53,6 +55,7 @@ def load_character_endpoint(payload: CharacterPayload):
             character_name=payload.character_name,
             model_dir=payload.onnx_model_dir,
             language=normalize_language(payload.language),
+            use_roberta=payload.use_roberta,
         )
         return {"status": "success", "message": f"Character '{payload.character_name}' loaded."}
     except Exception as e:
@@ -76,10 +79,25 @@ def set_reference_audio_endpoint(payload: ReferenceAudioPayload):
             status_code=400,
             detail=f"Audio format '{ext}' is not supported. Supported formats: {SUPPORTED_AUDIO_EXTS}",
         )
+    gsv_model = model_manager.get(payload.character_name)
+    use_roberta = payload.use_roberta
+    if use_roberta is None:
+        use_roberta = gsv_model.USE_ROBERTA if gsv_model else False
+    language = normalize_language(payload.language)
+    try:
+        ReferenceAudio(
+            prompt_wav=payload.audio_path,
+            prompt_text=payload.audio_text,
+            language=language,
+            use_roberta=use_roberta,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     _reference_audios[payload.character_name] = {
         'audio_path': payload.audio_path,
         'audio_text': payload.audio_text,
-        'language': normalize_language(payload.language),
+        'language': language,
+        'use_roberta': use_roberta,
     }
     return {"status": "success", "message": f"Reference audio for '{payload.character_name}' set."}
 
@@ -97,6 +115,7 @@ def run_tts_in_background(
             prompt_wav=_reference_audios[character_name]['audio_path'],
             prompt_text=_reference_audios[character_name]['audio_text'],
             language=_reference_audios[character_name]['language'],
+            use_roberta=_reference_audios[character_name].get('use_roberta', False),
         )
         tts_player.start_session(
             play=False,

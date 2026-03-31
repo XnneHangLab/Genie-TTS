@@ -99,6 +99,44 @@ class TestSingleLanguageDispatch:
         assert phones.shape == (1, 3)
         assert np.all(bert == 0)
 
+    def test_chinese_dispatch_with_roberta_enabled(self):
+        from genie_tts.GetPhonesAndBert import get_phones_and_bert
+        import genie_tts.GetPhonesAndBert as mod
+
+        fake_return = ("nih", "nih_norm", [1, 2, 3], [1, 1, 1])
+        stub = MagicMock()
+        stub.load_roberta_model = MagicMock(return_value=True)
+        stub.roberta_tokenizer.encode.return_value = MagicMock(ids=[101, 102], attention_mask=[1, 1])
+        stub.roberta_model.get_inputs.return_value = [
+            MagicMock(name="input_ids"),
+            MagicMock(name="token_type_ids"),
+            MagicMock(name="attention_mask"),
+        ]
+        for item, name in zip(stub.roberta_model.get_inputs.return_value, ["input_ids", "token_type_ids", "attention_mask"]):
+            item.name = name
+        stub.roberta_model.run.return_value = [np.ones((5, 1024), dtype=np.float32)]
+        orig = mod.model_manager
+        mod.model_manager = stub
+        try:
+            with patch(_G2P_ZH, return_value=fake_return):
+                phones, bert = get_phones_and_bert("你好", language="Chinese", use_roberta=True)
+        finally:
+            mod.model_manager = orig
+
+        assert phones.shape == (1, 3)
+        assert bert.shape == (3, 1024)
+        assert np.all(bert == 1)
+        run_inputs = stub.roberta_model.run.call_args[0][1]
+        assert "token_type_ids" in run_inputs
+
+    def test_chinese_dispatch_with_roberta_enabled_missing_assets_raises(self):
+        from genie_tts.GetPhonesAndBert import get_phones_and_bert
+
+        fake_return = ("nih", "nih_norm", [1, 2, 3], [1, 1, 1])
+        with patch(_G2P_ZH, return_value=fake_return):
+            with pytest.raises(FileNotFoundError):
+                get_phones_and_bert("你好", language="Chinese", use_roberta=True)
+
 
 # ---------------------------------------------------------------------------
 # Tests: Hybrid-Chinese-English

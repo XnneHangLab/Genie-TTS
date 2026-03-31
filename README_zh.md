@@ -21,8 +21,7 @@
 
 ---
 
-**GENIE** 是一个基于开源 TTS 项目 [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) 构建的轻量级推理引擎。它集成了 TTS
-推理、ONNX 模型转换、API 服务端以及其他核心功能，旨在提供极致的性能和便利性。
+**GENIE** 是一个基于开源 TTS 项目 [GPT-SoVITS](https://github.com/RVC-Boss/GPT-SoVITS) 构建的轻量级推理引擎。它集成了 TTS 推理、ONNX 模型转换、API 服务端以及其他核心功能，旨在提供极致的性能和便利性。
 
 * **✅ 支持的模型版本：** GPT-SoVITS V2, V2ProPlus
 * **✅ 支持的语言：** 日语、英语、中文、韩语、自动检测（`language="auto"`）
@@ -62,133 +61,207 @@ GENIE 针对原始模型进行了优化，以实现出色的 CPU 性能。
 pip install genie-tts
 ```
 
+如果你想使用这个 fork 里附带的转换 / 推理脚本：
+
+```bash
+pip install -e .
+pip install torch just
+```
+
+### 🛠️ 使用仓库内置的 `justfile`
+
+这个 fork 额外提供了一个 `justfile`，配套了可直接调用的脚本，用来：
+
+- 转换 GPT-SoVITS **V2** 模型
+- 转换 GPT-SoVITS **V2ProPlus** 模型
+- 测试两类模型的推理
+- 测试 `language="auto"`
+
+先安装 `just`：
+
+```bash
+cargo install just
+```
+
+或者：
+
+```bash
+pip install just
+```
+
+查看全部命令：
+
+```bash
+just
+```
+
+### 🔧 模型转换
+
+通用转换：
+
+```bash
+just convert /path/to/s1.ckpt /path/to/s2G.pth /path/to/output_dir
+```
+
+目录自动识别：自动在目录里找 `.ckpt` 和 `.pth`，默认输出到 `<目录名>_genie`：
+
+```bash
+just convert-auto /path/to/model_dir
+```
+
+例如：
+
+```bash
+just convert-auto /path/to/mika_v2
+# 输出到 /path/to/mika_v2_genie
+```
+
+也可以手动指定输出目录：
+
+```bash
+just convert-auto /path/to/mika_v2 /path/to/custom_output_dir
+```
+
+V2 示例：
+
+```bash
+just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_genie
+```
+
+V2ProPlus 示例：
+
+```bash
+just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_genie
+```
+
+目前这几个底层转换命令都走同一个转换入口，转换器会自动判断输入更像 V2 还是 V2ProPlus。
+
+### 🎤 推理测试
+
+通用推理：
+
+```bash
+just infer /path/to/model_dir /path/to/ref.wav "参考音频文本" "要合成的文本" zh demo ./outputs/demo.wav
+```
+
+V2 推理示例：
+
+```bash
+just infer-v2 /path/to/v2_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
+```
+
+V2ProPlus 推理示例：
+
+```bash
+just infer-v2pp /path/to/v2pp_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
+```
+
+自动语言检测示例：
+
+```bash
+just infer-auto /path/to/model_dir /path/to/ref.wav "你好，今天过得怎么样？" "你好，I love Tokyo！"
+```
+
+`justfile` 实际调用的是这三个脚本：
+
+- `scripts/convert_model.py`
+- `scripts/convert_auto.py`
+- `scripts/infer_model.py`
+
+如果你更习惯直接写 Python 命令，也可以绕过 `just` 直接调用它们。
+
 ## 📥 预训练模型
 
-首次运行 GENIE 时，需要下载资源文件（**~391MB**）。您可以按照库的提示自动下载。
+首次运行 GENIE 时，需要下载资源文件（**~391MB**）。你可以按照库的提示自动下载。
 
-> 或者，您可以从 [HuggingFace](https://huggingface.co/High-Logic/Genie/tree/main/GenieData) 手动下载文件并将其放置在本地文件夹中。然后在导入库
-**之前** 设置 `GENIE_DATA_DIR` 环境变量：
+> 或者，你也可以从 [HuggingFace](https://huggingface.co/High-Logic/Genie/tree/main/GenieData) 手动下载文件并放到本地目录，然后在导入库之前设置 `GENIE_DATA_DIR` 环境变量：
 
 ```python
 import os
 
-# 设置手动下载的资源文件路径
-# 注意：请在导入 genie_tts 之前执行此操作
 os.environ["GENIE_DATA_DIR"] = r"C:\path\to\your\GenieData"
 
 import genie_tts as genie
+```
 
-# 库现在将从指定目录加载资源
+如果你想启用 `use_roberta=True` 时用到的中文 RoBERTa 文本特征，也可以这样下载：
+
+```python
+import genie_tts as genie
+
+genie.download_roberta_data()
+# 或者：
+genie.download_genie_data(include_roberta=True)
 ```
 
 ### ⚡️ 快速试用
 
-还没有 GPT-SoVITS 模型？没问题！
-GENIE 包含几个预定义的说话人角色，您可以立即使用 —— 例如：
+还没有 GPT-SoVITS 模型？没关系。
+GENIE 内置了一些预定义角色，例如：
 
-* **Mika (聖園ミカ)** — *蔚蓝档案 (Blue Archive)* (日语)
-* **ThirtySeven (37)** — *重返未来：1999 (Reverse: 1999)* (英语)
-* **Feibi (菲比)** — *鸣潮 (Wuthering Waves)* (中文)
+* **Mika (聖園ミカ)** — *蔚蓝档案*（日语）
+* **ThirtySeven (37)** — *重返未来：1999*（英语）
+* **Feibi (菲比)** — *鸣潮*（中文）
 
-您可以在此处浏览所有可用角色：
-**[https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels](
-https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels)**
+可用角色见：
+**[https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels](https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels)**
 
-使用以下示例进行尝试：
+示例：
 
 ```python
 import genie_tts as genie
-import time
 
-# 首次运行时自动下载所需文件
 genie.load_predefined_character('mika')
 
 genie.tts(
     character_name='mika',
     text='どうしようかな……やっぱりやりたいかも……！',
-    play=True,  # 直接播放生成的音频
+    play=True,
 )
 
-genie.wait_for_playback_done()  # 确保音频播放完成
+genie.wait_for_playback_done()
 ```
 
-### 🎤 TTS 最佳实践
-
-一个简单的 TTS 推理示例：
+### 🎤 TTS 基本用法
 
 ```python
 import genie_tts as genie
 
-# 第一步：加载角色语音模型
 genie.load_character(
-    character_name='<CHARACTER_NAME>',  # 替换为您的角色名称
-    onnx_model_dir=r"<PATH_TO_CHARACTER_ONNX_MODEL_DIR>",  # 包含 ONNX 模型的文件夹
-    language='<LANGUAGE_CODE>',  # 替换为语言代码，例如 'en', 'zh', 'jp'
+    character_name='<CHARACTER_NAME>',
+    onnx_model_dir=r"<PATH_TO_CHARACTER_ONNX_MODEL_DIR>",
+    language='<LANGUAGE_CODE>',
 )
 
-# 第二步：设置参考音频（用于情感和语调克隆）
 genie.set_reference_audio(
-    character_name='<CHARACTER_NAME>',  # 必须与加载的角色名称匹配
-    audio_path=r"<PATH_TO_REFERENCE_AUDIO>",  # 参考音频的路径
-    audio_text="<REFERENCE_AUDIO_TEXT>",  # 对应的文本
+    character_name='<CHARACTER_NAME>',
+    audio_path=r"<PATH_TO_REFERENCE_AUDIO>",
+    audio_text="<REFERENCE_AUDIO_TEXT>",
 )
 
-# 第三步：运行 TTS 推理并生成音频
 genie.tts(
-    character_name='<CHARACTER_NAME>',  # 必须与加载的角色匹配
-    text="<TEXT_TO_SYNTHESIZE>",  # 要合成的文本
-    play=True,  # 直接播放音频
-    save_path="<OUTPUT_AUDIO_PATH>",  # 输出音频文件路径
+    character_name='<CHARACTER_NAME>',
+    text="<TEXT_TO_SYNTHESIZE>",
+    play=True,
+    save_path="<OUTPUT_AUDIO_PATH>",
 )
 
-genie.wait_for_playback_done()  # 确保音频播放完成
-
-print("🎉 Audio generation complete!")
-```
-
----
-
-## 🔧 模型转换
-
-要将原始 GPT-SoVITS 模型转换为 GENIE 格式，请确保已安装 `torch`：
-
-```bash
-pip install torch
-```
-
-使用内置的转换工具：
-
-> **提示：** `convert_to_onnx` 目前支持 V2 和 V2ProPlus 模型。
-
-```python
-import genie_tts as genie
-
-genie.convert_to_onnx(
-    torch_pth_path=r"<YOUR .PTH MODEL FILE>",  # 替换为您的 .pth 文件
-    torch_ckpt_path=r"<YOUR .CKPT CHECKPOINT FILE>",  # 替换为您的 .ckpt 文件
-    output_dir=r"<ONNX MODEL OUTPUT DIRECTORY>"  # 保存 ONNX 模型的目录
-)
+genie.wait_for_playback_done()
 ```
 
 ---
 
 ## 🌐 启动 FastAPI 服务
 
-GENIE 包含一个轻量级的 FastAPI 服务器：
-
 ```python
 import genie_tts as genie
 
-# 启动服务
 genie.start_server(
-    host="0.0.0.0",  # 主机地址
-    port=8000,  # 端口
-    workers=1  # 工作进程数
+    host="0.0.0.0",
+    port=8000,
+    workers=1
 )
 ```
-
-> 关于请求格式和 API 详情，请参阅我们的 [API 服务教程](./Tutorial/English/API%20Server%20Tutorial.py)。
-
 
 ---
 
@@ -207,5 +280,3 @@ genie.start_server(
 
     * [ ] 发布 **官方 Docker 镜像**。
     * [x] 提供开箱即用的 **Windows 整合包**。
-
----

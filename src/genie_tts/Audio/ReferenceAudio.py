@@ -14,19 +14,23 @@ class ReferenceAudio:
     _prompt_cache: Dict[str, 'ReferenceAudio'] = LRUCacheDict(
         capacity=int(os.getenv('Max_Cached_Reference_Audio', '10')))
 
-    def __new__(cls, prompt_wav: str, prompt_text: str, language: str):
+    def __new__(cls, prompt_wav: str, prompt_text: str, language: str, use_roberta: bool = False):
         if prompt_wav in cls._prompt_cache:
             instance = cls._prompt_cache[prompt_wav]
             # Re-run G2P if text OR language changed since the entry was cached.
-            if instance.text != prompt_text or getattr(instance, 'language', None) != language:
-                instance.set_text(prompt_text, language=language)
+            if (
+                instance.text != prompt_text
+                or getattr(instance, 'language', None) != language
+                or getattr(instance, 'use_roberta', False) != use_roberta
+            ):
+                instance.set_text(prompt_text, language=language, use_roberta=use_roberta)
             return instance
 
         instance = super().__new__(cls)
         cls._prompt_cache[prompt_wav] = instance
         return instance
 
-    def __init__(self, prompt_wav: str, prompt_text: str, language: str):
+    def __init__(self, prompt_wav: str, prompt_text: str, language: str, use_roberta: bool = False):
         if hasattr(self, '_initialized'):
             return
 
@@ -34,7 +38,8 @@ class ReferenceAudio:
         self.text: str = prompt_text
         self.phonemes_seq: Optional[np.ndarray] = None
         self.text_bert: Optional[np.ndarray] = None
-        self.set_text(prompt_text, language=language)
+        self.use_roberta: bool = use_roberta
+        self.set_text(prompt_text, language=language, use_roberta=use_roberta)
 
         # 音频相关。
         self.audio_32k: Optional[np.ndarray] = load_audio(
@@ -57,10 +62,15 @@ class ReferenceAudio:
 
         self._initialized = True
 
-    def set_text(self, prompt_text: str, language: str) -> None:
+    def set_text(self, prompt_text: str, language: str, use_roberta: bool = False) -> None:
         self.text = prompt_text
         self.language = language
-        self.phonemes_seq, self.text_bert = get_phones_and_bert(prompt_text, language=language)
+        self.use_roberta = use_roberta
+        self.phonemes_seq, self.text_bert = get_phones_and_bert(
+            prompt_text,
+            language=language,
+            use_roberta=use_roberta,
+        )
 
     @classmethod
     def clear_cache(cls) -> None:

@@ -47,7 +47,7 @@ GENIE optimizes the original model for outstanding CPU performance.
 | **Runtime Size**            | **\~200MB** |      \~several GB      |  Similar to GENIE   |
 | **Model Size**              | **\~230MB** |    Similar to GENIE    |       \~750MB       |
 
-> 📝 **Latency Test Info:** All latency data is based on a test set of 100 Japanese sentences (\~20 characters each),
+> 📝 **Latency Test Info:** All latency data is based on a test set of 100 Japanese sentences (~20 characters each),
 > averaged. Tested on CPU i7-13620H.
 
 ---
@@ -63,6 +63,116 @@ Install via pip:
 ```bash
 pip install genie-tts
 ```
+
+If you want to use the local utility scripts in this repo:
+
+```bash
+pip install -e .
+pip install torch just
+```
+
+### 🛠️ Using the included `justfile`
+
+This fork includes a `justfile` plus ready-to-run scripts for:
+
+- converting GPT-SoVITS **V2** models
+- converting GPT-SoVITS **V2ProPlus** models
+- testing inference for both converted model types
+- testing `language="auto"`
+- auto-discovering model directories for conversion
+
+Install `just` first:
+
+```bash
+cargo install just
+```
+
+or:
+
+```bash
+pip install just
+```
+
+List available commands:
+
+```bash
+just
+```
+
+### 🔧 Convert a model
+
+Generic conversion:
+
+```bash
+just convert /path/to/s1.ckpt /path/to/s2G.pth /path/to/output_dir
+```
+
+Auto-discover `.ckpt` and `.pth` inside a model directory, then output to `<model_dir>_genie` by default:
+
+```bash
+just convert-auto /path/to/model_dir
+```
+
+Example:
+
+```bash
+just convert-auto /path/to/mika_v2
+# output -> /path/to/mika_v2_genie
+```
+
+You can still override the output directory explicitly:
+
+```bash
+just convert-auto /path/to/mika_v2 /path/to/custom_output_dir
+```
+
+V2 example:
+
+```bash
+just convert-v2 /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2_genie
+```
+
+V2ProPlus example:
+
+```bash
+just convert-v2pp /path/to/s1.ckpt /path/to/s2G.pth /path/to/v2pp_genie
+```
+
+All three low-level conversion commands currently use the same converter entrypoint. The converter auto-detects whether the checkpoint is V2 or V2ProPlus.
+
+### 🎤 Run inference tests
+
+Generic inference:
+
+```bash
+just infer /path/to/model_dir /path/to/ref.wav "reference text" "text to synthesize" zh demo ./outputs/demo.wav
+```
+
+V2 inference example:
+
+```bash
+just infer-v2 /path/to/v2_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2 ./outputs/v2.wav
+```
+
+V2ProPlus inference example:
+
+```bash
+just infer-v2pp /path/to/v2pp_genie /path/to/ref.wav "今天天气真不错。" "你好呀，我是沐雪。" zh muxue-v2pp ./outputs/v2pp.wav
+```
+
+Auto language detection example:
+
+```bash
+just infer-auto /path/to/model_dir /path/to/ref.wav "你好，今天过得怎么样？" "你好，I love Tokyo！"
+```
+
+The `justfile` recipes call these scripts:
+
+- `scripts/convert_model.py`
+- `scripts/convert_auto.py`
+- `scripts/infer_model.py`
+
+You can also run them directly if you prefer plain Python commands.
 
 ## 📥 Pretrained Models
 
@@ -85,6 +195,17 @@ import genie_tts as genie
 # The library will now load resources from the specified directory
 ```
 
+If you want the optional Chinese RoBERTa text features used by `use_roberta=True`,
+you can download them with:
+
+```python
+import genie_tts as genie
+
+genie.download_roberta_data()
+# or:
+genie.download_genie_data(include_roberta=True)
+```
+
 ### ⚡️ Quick Tryout
 
 No GPT-SoVITS model yet? No problem!
@@ -96,25 +217,22 @@ for example:
 * **Feibi (菲比)** — *Wuthering Waves* (Chinese)
 
 You can browse all available characters here:
-**[https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels](
-https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels)**
+**[https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels](https://huggingface.co/High-Logic/Genie/tree/main/CharacterModels)**
 
 Try it out with the example below:
 
 ```python
 import genie_tts as genie
-import time
 
-# Automatically downloads required files on first run
 genie.load_predefined_character('mika')
 
 genie.tts(
     character_name='mika',
     text='どうしようかな……やっぱりやりたいかも……！',
-    play=True,  # Play the generated audio directly
+    play=True,
 )
 
-genie.wait_for_playback_done()  # Ensure audio playback completes
+genie.wait_for_playback_done()
 ```
 
 ### 🎤 TTS Best Practices
@@ -124,55 +242,26 @@ A simple TTS inference example:
 ```python
 import genie_tts as genie
 
-# Step 1: Load character voice model
 genie.load_character(
-    character_name='<CHARACTER_NAME>',  # Replace with your character name
-    onnx_model_dir=r"<PATH_TO_CHARACTER_ONNX_MODEL_DIR>",  # Folder containing ONNX model
-    language='<LANGUAGE_CODE>',  # Replace with language code, e.g., 'en', 'zh', 'jp'
+    character_name='<CHARACTER_NAME>',
+    onnx_model_dir=r"<PATH_TO_CHARACTER_ONNX_MODEL_DIR>",
+    language='<LANGUAGE_CODE>',
 )
 
-# Step 2: Set reference audio (for emotion and intonation cloning)
 genie.set_reference_audio(
-    character_name='<CHARACTER_NAME>',  # Must match loaded character name
-    audio_path=r"<PATH_TO_REFERENCE_AUDIO>",  # Path to reference audio
-    audio_text="<REFERENCE_AUDIO_TEXT>",  # Corresponding text
+    character_name='<CHARACTER_NAME>',
+    audio_path=r"<PATH_TO_REFERENCE_AUDIO>",
+    audio_text="<REFERENCE_AUDIO_TEXT>",
 )
 
-# Step 3: Run TTS inference and generate audio
 genie.tts(
-    character_name='<CHARACTER_NAME>',  # Must match loaded character
-    text="<TEXT_TO_SYNTHESIZE>",  # Text to synthesize
-    play=True,  # Play audio directly
-    save_path="<OUTPUT_AUDIO_PATH>",  # Output audio file path
+    character_name='<CHARACTER_NAME>',
+    text="<TEXT_TO_SYNTHESIZE>",
+    play=True,
+    save_path="<OUTPUT_AUDIO_PATH>",
 )
 
-genie.wait_for_playback_done()  # Ensure audio playback completes
-
-print("🎉 Audio generation complete!")
-```
-
----
-
-## 🔧 Model Conversion
-
-To convert original GPT-SoVITS models for GENIE, ensure `torch` is installed:
-
-```bash
-pip install torch
-```
-
-Use the built-in conversion tool:
-
-> **Tip:** `convert_to_onnx` currently supports V2 and V2ProPlus models.
-
-```python
-import genie_tts as genie
-
-genie.convert_to_onnx(
-    torch_pth_path=r"<YOUR .PTH MODEL FILE>",  # Replace with your .pth file
-    torch_ckpt_path=r"<YOUR .CKPT CHECKPOINT FILE>",  # Replace with your .ckpt file
-    output_dir=r"<ONNX MODEL OUTPUT DIRECTORY>"  # Directory to save ONNX model
-)
+genie.wait_for_playback_done()
 ```
 
 ---
@@ -184,16 +273,12 @@ GENIE includes a lightweight FastAPI server:
 ```python
 import genie_tts as genie
 
-# Start server
 genie.start_server(
-    host="0.0.0.0",  # Host address
-    port=8000,  # Port
-    workers=1  # Number of workers
+    host="0.0.0.0",
+    port=8000,
+    workers=1
 )
 ```
-
-> For request formats and API details, see our [API Server Tutorial](./Tutorial/English/API%20Server%20Tutorial.py).
-
 
 ---
 
