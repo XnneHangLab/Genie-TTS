@@ -184,6 +184,16 @@ os.environ["GENIE_DATA_DIR"] = r"C:\path\to\your\GenieData"
 import genie_tts as genie
 ```
 
+如果你想启用 `use_roberta=True` 时用到的中文 RoBERTa 文本特征，也可以这样下载：
+
+```python
+import genie_tts as genie
+
+genie.download_roberta_data()
+# 或者：
+genie.download_genie_data(include_roberta=True)
+```
+
 ### ⚡️ 快速试用
 
 还没有 GPT-SoVITS 模型？没关系。

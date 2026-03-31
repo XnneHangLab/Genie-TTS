@@ -156,7 +156,9 @@ def _get_phones_and_bert_single(
                 raise FileNotFoundError(
                     "Chinese RoBERTa was requested but the ONNX model or tokenizer could not be loaded. "
                     "Place model.onnx (or RoBERTa.onnx) and tokenizer.json under ROBERTA_MODEL_DIR "
-                    "or a GenieData subdirectory whose name contains 'roberta'."
+                    "or a GenieData subdirectory whose name contains 'roberta'. "
+                    "You can also call genie.download_roberta_data() or "
+                    "genie.download_genie_data(include_roberta=True)."
                 )
             encoded = model_manager.roberta_tokenizer.encode(text_clean)
             ort_inputs = _build_roberta_inputs(encoded, word2ph)

@@ -195,6 +195,17 @@ import genie_tts as genie
 # The library will now load resources from the specified directory
 ```
 
+If you want the optional Chinese RoBERTa text features used by `use_roberta=True`,
+you can download them with:
+
+```python
+import genie_tts as genie
+
+genie.download_roberta_data()
+# or:
+genie.download_genie_data(include_roberta=True)
+```
+
 ### ⚡️ Quick Tryout
 
 No GPT-SoVITS model yet? No problem!
