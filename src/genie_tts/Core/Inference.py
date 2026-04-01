@@ -9,6 +9,23 @@ from ..GetPhonesAndBert import get_phones_and_bert
 MAX_T2S_LEN = 1000
 
 
+def _should_stop_decoding(stop_condition_tensor: object) -> bool:
+    stop_array = np.asarray(stop_condition_tensor)
+    if stop_array.size == 0:
+        return False
+    return bool(stop_array.reshape(-1)[0])
+
+
+def _extract_generated_semantic_tokens(y: np.ndarray, generated_steps: int) -> np.ndarray:
+    if generated_steps <= 0:
+        raise RuntimeError("GENIE decoder returned zero generated semantic steps")
+    if y.ndim != 2:
+        raise ValueError(f"Expected semantic tokens with 2 dims, got shape={y.shape}")
+
+    slice_width = min(generated_steps, y.shape[1])
+    return np.expand_dims(y[:, -slice_width:], axis=0)
+
+
 class GENIE:
     def __init__(self):
         self.stop_event: threading.Event = threading.Event()
@@ -41,6 +58,8 @@ class GENIE:
             first_stage_decoder=first_stage_decoder,
             stage_decoder=stage_decoder,
         )
+        if semantic_tokens is None:
+            return None
 
         eos_indices = np.where(semantic_tokens >= 1024)  # 剔除不合法的元素，例如 EOS Token。
         if len(eos_indices[0]) > 0:
@@ -95,8 +114,8 @@ class GENIE:
 
         # Stage Decoder
         input_names: List[str] = [inp.name for inp in stage_decoder.get_inputs()]
-        idx: int = 0
-        for idx in range(0, 500):
+        generated_steps = 0
+        for _ in range(0, 500):
             if self.stop_event.is_set():
                 return None
             input_feed = {
@@ -105,12 +124,13 @@ class GENIE:
             }
             outputs = stage_decoder.run(None, input_feed)
             y, y_emb, stop_condition_tensor, *present_key_values = outputs
+            generated_steps += 1
 
-            if stop_condition_tensor:
+            if _should_stop_decoding(stop_condition_tensor):
                 break
 
         y[0, -1] = 0
-        return np.expand_dims(y[:, -idx:], axis=0)
+        return _extract_generated_semantic_tokens(y, generated_steps)
 
 
 tts_client: GENIE = GENIE()
