@@ -48,7 +48,7 @@ dependencies = [
     "jamo",
     "ko_pron",
     "g2pk2",
-    "eunjeon",
+    "eunjeon; sys_platform == 'win32'",
     "fast_langdetect",  # 自动语言检测
 	"torch==2.6"
 ]
