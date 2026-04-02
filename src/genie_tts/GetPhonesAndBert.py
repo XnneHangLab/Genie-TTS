@@ -6,15 +6,24 @@ Supported language values (after normalize_language()):
 """
 from __future__ import annotations
 
-import re
 import logging
+import re
+import sys
+from typing import TypedDict
+
 import numpy as np
-from typing import Tuple
 
 from .Utils.Constants import BERT_FEATURE_DIM
 from .ModelManager import model_manager
 
 logger = logging.getLogger(__name__)
+_AUTO_PLATFORM_WARNING_EMITTED = False
+_NON_WINDOWS_AUTO_LANGUAGES = {"Chinese", "Japanese", "English"}
+
+
+class LangChunk(TypedDict):
+    language: str
+    content: str
 
 
 def _build_roberta_inputs(encoded, word2ph: list[int]) -> dict[str, np.ndarray]:
@@ -67,7 +76,7 @@ def _expand_roberta_output(text_bert: np.ndarray, word2ph: list[int], num_phones
 # Legacy Hybrid-Chinese-English splitter (preserved for backward compatibility)
 # ---------------------------------------------------------------------------
 
-def _split_chinese_english(text: str) -> list[dict]:
+def _split_chinese_english(text: str) -> list[LangChunk]:
     """Split text into Chinese and English chunks via Latin-character regex.
 
     Kept for backward compatibility with 'Hybrid-Chinese-English' mode.
@@ -77,7 +86,7 @@ def _split_chinese_english(text: str) -> list[dict]:
     parts = re.split(pattern_eng, text)
     matches = pattern_eng.findall(text)
 
-    result: list[dict] = []
+    result: list[LangChunk] = []
     for i, part in enumerate(parts):
         if part.strip():
             result.append({"language": "chinese", "content": part})
@@ -90,9 +99,39 @@ def _split_chinese_english(text: str) -> list[dict]:
 # Public entry point
 # ---------------------------------------------------------------------------
 
+def _normalize_auto_chunks_for_platform(chunks: list[LangChunk]) -> list[LangChunk]:
+    global _AUTO_PLATFORM_WARNING_EMITTED
+
+    if sys.platform == "win32":
+        return chunks
+
+    if not _AUTO_PLATFORM_WARNING_EMITTED:
+        logger.warning(
+            "Auto language detection on %s only supports Chinese/Japanese/English in this build. "
+            "Korean segments will fall back to English.",
+            sys.platform,
+        )
+        _AUTO_PLATFORM_WARNING_EMITTED = True
+
+    normalized: list[LangChunk] = []
+    for chunk in chunks:
+        if chunk["language"] in _NON_WINDOWS_AUTO_LANGUAGES:
+            normalized.append(chunk)
+            continue
+
+        logger.warning(
+            "Auto language detection remapped unsupported language %r to English on %s for text %r.",
+            chunk["language"],
+            sys.platform,
+            chunk["content"][:40],
+        )
+        normalized.append({"language": "English", "content": chunk["content"]})
+    return normalized
+
+
 def get_phones_and_bert(
     prompt_text: str, language: str = "japanese", use_roberta: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Return (phones_seq, text_bert) for *prompt_text* in *language*.
 
     *language* should already be normalised by normalize_language().
@@ -107,7 +146,8 @@ def get_phones_and_bert(
 
     if lang_lower == "auto":
         from .Utils.LangDetector import segment_by_language
-        chunks = segment_by_language(prompt_text)
+
+        chunks = _normalize_auto_chunks_for_platform(segment_by_language(prompt_text))
         if not chunks:
             logger.warning("LangDetector returned no segments for text %r; falling back to Japanese.", prompt_text[:60])
             return _get_phones_and_bert_single(prompt_text, "japanese", use_roberta=use_roberta)
@@ -122,7 +162,7 @@ def get_phones_and_bert(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _process_chunks(chunks: list[dict], use_roberta: bool = False) -> Tuple[np.ndarray, np.ndarray]:
+def _process_chunks(chunks: list[LangChunk], use_roberta: bool = False) -> tuple[np.ndarray, np.ndarray]:
     """Run G2P on each chunk and concatenate results."""
     list_phones: list[np.ndarray] = []
     list_berts: list[np.ndarray] = []
@@ -139,7 +179,7 @@ def _process_chunks(chunks: list[dict], use_roberta: bool = False) -> Tuple[np.n
 
 def _get_phones_and_bert_single(
     prompt_text: str, language: str = "japanese", use_roberta: bool = False
-) -> Tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray]:
     """Run G2P for a single-language text chunk."""
     lang_lower = language.lower()
 
