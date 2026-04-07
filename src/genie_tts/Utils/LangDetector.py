@@ -21,6 +21,17 @@ _FASTLANG_MAP: dict[str, str] = {
     # Additional codes fast_langdetect may return
     "zh-cn": "Chinese",
     "zh-tw": "Chinese",
+    # Chinese dialect codes — all use the same character set and G2P pipeline
+    "wuu": "Chinese",   # Wu Chinese (Shanghainese)
+    "yue": "Chinese",   # Cantonese
+    "nan": "Chinese",   # Southern Min (Hokkien/Min Nan)
+    "hak": "Chinese",   # Hakka
+    "cmn": "Chinese",   # Standard Mandarin (ISO 639-3)
+    "cjy": "Chinese",   # Jinyu Chinese
+    "cpx": "Chinese",   # Pu-Xian Min
+    "czh": "Chinese",   # Huizhou Chinese
+    "czo": "Chinese",   # Min Zhong Chinese
+    "mnp": "Chinese",   # Min Bei Chinese
 }
 
 _FALLBACK_LANG = "English"
