@@ -328,6 +328,9 @@ class ModelManager:
         fp32_decoders = [GSVModelFile.T2S_FIRST_STAGE_DECODER_FP32, GSVModelFile.T2S_STAGE_DECODER_FP32]
         model_files_to_load.extend(fp32_decoders)
 
+        intra_threads_str = os.getenv("XH_ONNX_INTRA_THREADS", "")
+        intra_threads = int(intra_threads_str) if intra_threads_str.strip().isdigit() else 0
+
         try:
             for model_file in model_files_to_load:
                 model_path = os.path.normpath(os.path.join(model_dir, model_file))
@@ -335,6 +338,8 @@ class ModelManager:
                 # 设置 Session Options
                 sess_options = onnxruntime.SessionOptions()
                 sess_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+                if intra_threads > 0:
+                    sess_options.intra_op_num_threads = intra_threads
 
                 if os.path.exists(model_path):
                     fp16_bin_name = onnx_to_fp16_map.get(model_file)
@@ -357,10 +362,12 @@ class ModelManager:
 
             # 日志信息
             is_v2pp = model_dict[GSVModelFile.PROMPT_ENCODER] is not None
+            thread_info = f"intra_op_num_threads={intra_threads}" if intra_threads > 0 else "intra_op_num_threads=default"
             logger.info(
                 f"Character {character_name.capitalize()} loaded successfully.\n"
                 f"- Model Path: {model_dir}\n"
-                f"- Model Type: {'V2ProPlus' if is_v2pp else 'V2'}"
+                f"- Model Type: {'V2ProPlus' if is_v2pp else 'V2'}\n"
+                f"- ONNX threads: {thread_info}"
             )
 
             self.character_to_model[character_name] = model_dict
