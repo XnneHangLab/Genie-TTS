@@ -105,7 +105,7 @@ def detect_language(text: str) -> str:
         return _FALLBACK_LANG
 
     try:
-        result = _detect_fn(text)
+        result = _detect_fn(text, model="lite")
         # fast_langdetect returns a list of dicts: [{'lang': 'zh', 'score': 0.99}, ...]
         if isinstance(result, list):
             code = result[0].get("lang", "").lower() if result else ""
